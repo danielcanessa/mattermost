@@ -1,5 +1,56 @@
 # [![Mattermost logo](https://user-images.githubusercontent.com/7205829/137170381-fe86eef0-bccc-4fdd-8e92-b258884ebdd7.png)](https://mattermost.com)
 
+# Proyecto 
+
+**Universidad CENFOTEC**  
+**Escuela de Ingeniería del Software**
+**Equipo:** Foo  
+**Curso:** PSWE-07  
+
+## Integrantes
+
+- Braulio Rivera Espinoza
+- Daniel Canessa Valverde
+- Roberto Obed Del Cid Winter
+- Roger Fonseca Montero
+
+## Introducción
+
+Para el proyecto del curso **PSWE-07**, el equipo Foo trabajará sobre **Mattermost**.
+
+Como mejora del sistema se seleccionó el issue [#15976 - Allow users to access recent searches](https://github.com/mattermost/mattermost/issues/15976). Este issue propone incorporar al buscador de Mattermost la posibilidad de consultar búsquedas realizadas recientemente.
+
+La funcionalidad propuesta permitirá mostrar hasta cinco búsquedas recientes, ordenadas de la más reciente a la más antigua, dentro del panel de búsqueda. Además, el usuario podrá reutilizar una búsqueda anterior y eliminar individualmente elementos del historial reciente.
+
+El proyecto analizará el comportamiento actual de Mattermost, el alcance de la mejora, los componentes involucrados y los cambios necesarios para incorporar esta funcionalidad, siguiendo el proceso de análisis, diseño, desarrollo, pruebas y documentación definido para el curso.
+
+## Alcance
+
+El alcance del proyecto se limita a la implementación de la funcionalidad descrita en el issue **#15976**, relacionada con la gestión de búsquedas recientes en Mattermost.
+
+La mejora contempla:
+
+- Registrar las búsquedas realizadas recientemente por el usuario.
+- Mostrar un máximo de cinco búsquedas recientes.
+- Ordenar las búsquedas de la más reciente a la más antigua.
+- Mostrar las búsquedas recientes dentro del panel de búsqueda de Mattermost.
+- Permitir reutilizar una búsqueda reciente.
+- Permitir eliminar individualmente una búsqueda reciente.
+- Incorporar los cambios necesarios en frontend y backend según lo requiera la arquitectura actual de Mattermost.
+- Implementar las pruebas necesarias para validar el comportamiento de la funcionalidad.
+
+Quedan fuera del alcance cambios generales al funcionamiento del motor de búsqueda de Mattermost, modificaciones al algoritmo de búsqueda, nuevas capacidades de filtrado y cualquier funcionalidad que no esté directamente relacionada con la gestión de búsquedas recientes definida en el issue seleccionado.
+
+## Diagrama de arquitectura C4
+
+Como parte del análisis inicial se incluye un **diagrama C4 de Nivel 1 - System Context**, con el objetivo de representar a Mattermost dentro de su contexto y mostrar las principales interacciones entre el sistema y sus usuarios o sistemas externos.
+
+El diagrama permite establecer el contexto arquitectónico general antes de profundizar, en los componentes específicos involucrados en la implementación de la funcionalidad de búsquedas recientes.
+
+<!-- Agregar aquí el diagrama C4 Nivel 1 -->
+
+# Readme de upstream
+
 [Mattermost](https://mattermost.com) is an open core, self-hosted collaboration platform that offers chat, workflow automation, voice calling, screen sharing, and AI integration. This repo is the primary source for core development on the Mattermost platform; it's written in Go and React, runs as a single Linux binary, and relies on PostgreSQL. A new compiled version is released under an MIT license every month on the 16th.
 
 [Deploy Mattermost on-premises](https://mattermost.com/deploy/?utm_source=github-mattermost-server-readme), or [try it for free in the cloud](https://mattermost.com/sign-up/?utm_source=github-mattermost-server-readme).
