@@ -47,7 +47,25 @@ Como parte del análisis inicial se incluye un **diagrama C4 de Nivel 1 - System
 
 El diagrama permite establecer el contexto arquitectónico general antes de profundizar, en los componentes específicos involucrados en la implementación de la funcionalidad de búsquedas recientes.
 
-<!-- Agregar aquí el diagrama C4 Nivel 1 -->
+<!-- Fuente: docs/project/c4-context.md. Si cambia el diagrama, actualizar ambos. -->
+```mermaid
+C4Context
+  title Mattermost: búsquedas recientes (C4 nivel 1, contexto)
+
+  Person(miembro, "Miembro del equipo", "Busca mensajes varias veces al día y repite las mismas consultas.")
+  Person(admin, "Administrador", "Instala y configura la instancia autoalojada del equipo.")
+
+  System(mattermost, "Mattermost", "Chat de equipos autoalojado: canales, hilos y búsqueda. Mejora: guarda las 5 búsquedas recientes de cada cuenta.")
+
+  Rel(miembro, mattermost, "Busca; elige o borra una búsqueda reciente", "HTTPS")
+  Rel(admin, mattermost, "Despliega y configura", "HTTPS")
+
+  UpdateRelStyle(miembro, mattermost, $offsetX="-150", $offsetY="-30")
+  UpdateRelStyle(admin, mattermost, $offsetX="40", $offsetY="-10")
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
+```
+
+El detalle de cada elemento y relación, y las decisiones que refleja el diagrama, están en [`docs/project/c4-context.md`](docs/project/c4-context.md).
 
 # Readme de upstream
 
