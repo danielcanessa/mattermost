@@ -36,36 +36,38 @@ La mejora contempla:
 - Mostrar las búsquedas recientes dentro del panel de búsqueda de Mattermost.
 - Permitir reutilizar una búsqueda reciente.
 - Permitir eliminar individualmente una búsqueda reciente.
-- Incorporar los cambios necesarios en frontend y backend según lo requiera la arquitectura actual de Mattermost.
+- Modificar la interfaz, la lógica de aplicación y la persistencia para gestionar el historial de búsquedas recientes de cada usuario.
 - Implementar las pruebas necesarias para validar el comportamiento de la funcionalidad.
 
 Quedan fuera del alcance cambios generales al funcionamiento del motor de búsqueda de Mattermost, modificaciones al algoritmo de búsqueda, nuevas capacidades de filtrado y cualquier funcionalidad que no esté directamente relacionada con la gestión de búsquedas recientes definida en el issue seleccionado.
 
+La implementación se limita a la aplicación web y los cambios necesarios en el servidor y la persistencia. La aplicación móvil queda fuera del alcance.
+
 ## Diagrama de arquitectura C4
 
-Como parte del análisis inicial se incluye un **diagrama C4 de Nivel 1 - System Context**, con el objetivo de representar a Mattermost dentro de su contexto y mostrar las principales interacciones entre el sistema y sus usuarios o sistemas externos.
+Como parte del análisis inicial se incluye un **diagrama C4 de Nivel 1 - System Context** que representa el contexto actual de Mattermost y sus interacciones con el miembro del equipo y el administrador.
 
-El diagrama permite establecer el contexto arquitectónico general antes de profundizar, en los componentes específicos involucrados en la implementación de la funcionalidad de búsquedas recientes.
+El diagrama describe el sistema de forma general. El alcance de la mejora de búsquedas recientes y los cambios previstos en interfaz, lógica de aplicación y persistencia se documentan en la sección de alcance.
 
 <!-- Fuente: docs/project/c4-context.md. Si cambia el diagrama, actualizar ambos. -->
 ```mermaid
 C4Context
-  title Mattermost: búsquedas recientes (C4 nivel 1, contexto)
+  title Mattermost: contexto actual (C4 nivel 1)
 
-  Person(miembro, "Miembro del equipo", "Busca mensajes varias veces al día y repite las mismas consultas.")
+  Person(miembro, "Miembro del equipo", "Se comunica y colabora con otros miembros del equipo.")
   Person(admin, "Administrador", "Instala y configura la instancia autoalojada del equipo.")
 
-  System(mattermost, "Mattermost", "Chat de equipos autoalojado: canales, hilos y búsqueda. Mejora: guarda las 5 búsquedas recientes de cada cuenta.")
+  System(mattermost, "Mattermost", "Plataforma de comunicación y colaboración con canales, mensajes, hilos y búsqueda.")
 
-  Rel(miembro, mattermost, "Busca; elige o borra una búsqueda reciente", "HTTPS")
-  Rel(admin, mattermost, "Despliega y configura", "HTTPS")
+  Rel(miembro, mattermost, "Participa en canales, envía mensajes y busca información")
+  Rel(admin, mattermost, "Administra y configura la instancia")
 
   UpdateRelStyle(miembro, mattermost, $offsetX="-150", $offsetY="-30")
   UpdateRelStyle(admin, mattermost, $offsetX="40", $offsetY="-10")
   UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 ```
 
-El detalle de cada elemento y relación, y las decisiones que refleja el diagrama, están en [`docs/project/c4-context.md`](docs/project/c4-context.md).
+El detalle de cada elemento y relación, junto con el alcance de esta vista, está en [`docs/project/c4-context.md`](docs/project/c4-context.md).
 
 # Readme de upstream
 

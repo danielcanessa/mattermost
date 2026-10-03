@@ -1,20 +1,20 @@
 # Diagrama C4 · Nivel 1 (contexto)
 
-Proyecto del equipo Foo sobre Mattermost: búsquedas recientes en el cuadro de búsqueda ([issue #15976](https://github.com/mattermost/mattermost/issues/15976)).
+Este diagrama presenta el contexto actual de Mattermost como parte del análisis del proyecto del equipo Foo.
 
-En este nivel solo se muestra el sistema y quién se relaciona con él. La lista de búsquedas recientes no es un sistema aparte: es un dato de cada cuenta dentro de Mattermost, por eso no aparecen sistemas externos nuevos.
+La vista se centra en el sistema, sus principales usuarios y sus interacciones generales. El alcance de la mejora de búsquedas recientes se documenta por separado en el [README](../../README.md#alcance).
 
 ```mermaid
 C4Context
-  title Mattermost: búsquedas recientes (C4 nivel 1, contexto)
+  title Mattermost: contexto actual (C4 nivel 1)
 
-  Person(miembro, "Miembro del equipo", "Busca mensajes varias veces al día y repite las mismas consultas.")
+  Person(miembro, "Miembro del equipo", "Se comunica y colabora con otros miembros del equipo.")
   Person(admin, "Administrador", "Instala y configura la instancia autoalojada del equipo.")
 
-  System(mattermost, "Mattermost", "Chat de equipos autoalojado: canales, hilos y búsqueda. Mejora: guarda las 5 búsquedas recientes de cada cuenta.")
+  System(mattermost, "Mattermost", "Plataforma de comunicación y colaboración con canales, mensajes, hilos y búsqueda.")
 
-  Rel(miembro, mattermost, "Busca; elige o borra una búsqueda reciente", "HTTPS")
-  Rel(admin, mattermost, "Despliega y configura", "HTTPS")
+  Rel(miembro, mattermost, "Participa en canales, envía mensajes y busca información")
+  Rel(admin, mattermost, "Administra y configura la instancia")
 
   UpdateRelStyle(miembro, mattermost, $offsetX="-150", $offsetY="-30")
   UpdateRelStyle(admin, mattermost, $offsetX="40", $offsetY="-10")
@@ -25,21 +25,19 @@ C4Context
 
 | Elemento | Tipo | Descripción |
 |---|---|---|
-| Miembro del equipo | Persona | Usuario meta. Consulta el historial de los canales varias veces al día y repite búsquedas (un incidente, un nombre, un archivo). |
-| Administrador | Persona | Despliega y configura la instancia. No interviene en la mejora. |
-| Mattermost | Sistema de software | Servidor en Go y aplicación web en React/TypeScript. Con la mejora, guarda hasta cinco búsquedas recientes por cuenta y las muestra al abrir el cuadro de búsqueda. |
+| Miembro del equipo | Persona | Utiliza Mattermost para comunicarse, participar en canales y consultar información compartida. |
+| Administrador | Persona | Instala, administra y configura la instancia de Mattermost del equipo. |
+| Mattermost | Sistema de software | Plataforma de comunicación y colaboración que permite organizar conversaciones en canales, intercambiar mensajes, responder en hilos y buscar información. |
 
 ## Relaciones
 
-| Origen | Destino | Descripción | Tecnología |
-|---|---|---|---|
-| Miembro del equipo | Mattermost | Busca mensajes; elige una búsqueda reciente para volver a lanzarla o la borra. | HTTPS, navegador web |
-| Administrador | Mattermost | Despliega y configura la instancia. | HTTPS, consola del sistema |
+| Origen | Destino | Descripción |
+|---|---|---|
+| Miembro del equipo | Mattermost | Participa en canales, envía mensajes y busca información. |
+| Administrador | Mattermost | Administra y configura la instancia. |
 
-## Decisiones reflejadas en el diagrama
+## Alcance de esta vista
 
-- **Sin sistemas externos nuevos.** La lista se guarda como preferencia del usuario con la API existente de Mattermost (`/api/v4/users/{id}/preferences`), el mismo patrón que ya usan los estados personalizados recientes. No se usa la tabla `recentsearches`, que el propio código marca como sin uso y pendiente de eliminarse.
-- **Solo la aplicación web.** La aplicación móvil queda fuera del alcance.
-- **Nivel 2 pendiente.** Cómo se reparten la lista el servidor y la aplicación web corresponde al diagrama de contenedores, en una entrega posterior.
+Mattermost se representa como un único sistema. Esta vista se limita a las relaciones con el miembro del equipo y el administrador; no detalla integraciones externas ni la estructura interna de aplicaciones, componentes o almacenamiento. Tampoco representa cambios futuros de la funcionalidad de búsquedas recientes.
 
 [Volver al README](../../README.md#diagrama-de-arquitectura-c4)
