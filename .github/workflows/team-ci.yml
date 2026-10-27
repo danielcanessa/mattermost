@@ -1,0 +1,158 @@
+name: Team CI
+on:
+  pull_request:
+    branches: [master, feature/recent-searches]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      webapp: ${{ steps.diff.outputs.webapp }}
+      server: ${{ steps.diff.outputs.server }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          # A push that creates the branch has no previous commit; compare against the parent instead.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE=HEAD~1
+          fi
+          files=$(git diff --name-only "$BASE"...HEAD)
+          echo "$files"
+          webapp=false
+          server=false
+          if echo "$files" | grep -qx '\.github/workflows/team-ci\.yml'; then
+            webapp=true
+            server=true
+          fi
+          if echo "$files" | grep -q '^webapp/'; then webapp=true; fi
+          if echo "$files" | grep -q '^server/'; then server=true; fi
+          echo "webapp=$webapp" >> "$GITHUB_OUTPUT"
+          echo "server=$server" >> "$GITHUB_OUTPUT"
+
+  webapp:
+    needs: changes
+    if: needs.changes.outputs.webapp == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: webapp/channels
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/webapp-setup
+      - name: Lint
+        run: npm run check
+      - name: Types
+        run: npm run check-types
+      - name: Tests (new_search + related)
+        env:
+          BASE_REF: ${{ github.base_ref || 'master' }}
+        run: |
+          # Paths are relative to webapp/channels. new_search files are always included so its
+          # tests run on every PR; changed files add the tests related to them.
+          mapfile -t sources < <(
+            {
+              git ls-files -- src/components/new_search
+              git diff --name-only --relative --diff-filter=d "origin/${BASE_REF}"...HEAD -- .
+            } | grep -E '\.(ts|tsx|js|jsx)$' | sort -u
+          )
+          printf '%s\n' "${sources[@]}"
+          npx cross-env TZ=Etc/UTC LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+            jest --ci --passWithNoTests --coverage \
+            --coverageReporters=text-summary --coverageReporters=json-summary \
+            --findRelatedTests "${sources[@]}"
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        if: always()
+        with:
+          name: webapp-coverage
+          path: webapp/channels/coverage
+          retention-days: 14
+
+  server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: mmuser
+          POSTGRES_PASSWORD: mostest_password
+          POSTGRES_DB: mattermost_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mmuser"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mostest_password@localhost:5432/mattermost_test?sslmode=disable&connect_timeout=10
+      TEST_DATABASE_POSTGRESQL_DSN: postgres://mmuser:mostest_password@localhost:5432/mattermost_test?sslmode=disable&connect_timeout=10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417  # v6.3.0
+        with:
+          go-version-file: server/go.mod
+      - name: Set up go.work
+        run: make setup-go-work
+      - name: Changed packages
+        id: pkgs
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE=HEAD~1
+          fi
+          # Paths are relative to server/; deleted files are skipped so gofmt and go vet only see existing files.
+          git diff --name-only --relative --diff-filter=d "$BASE"...HEAD -- . | grep '\.go$' > "$RUNNER_TEMP/go-files.txt" || true
+          xargs -r -n1 dirname < "$RUNNER_TEMP/go-files.txt" | sort -u | sed 's#^#./#' > "$RUNNER_TEMP/go-pkgs.txt"
+          cat "$RUNNER_TEMP/go-pkgs.txt"
+          if [ -s "$RUNNER_TEMP/go-pkgs.txt" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: gofmt
+        if: steps.pkgs.outputs.changed == 'true'
+        run: |
+          unformatted=$(xargs gofmt -l < "$RUNNER_TEMP/go-files.txt")
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: go vet
+        if: steps.pkgs.outputs.changed == 'true'
+        run: xargs go vet < "$RUNNER_TEMP/go-pkgs.txt"
+      - name: go test
+        if: steps.pkgs.outputs.changed == 'true'
+        run: xargs go test -count=1 -coverprofile=coverage.out < "$RUNNER_TEMP/go-pkgs.txt"
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        if: always() && steps.pkgs.outputs.changed == 'true'
+        with:
+          name: server-coverage
+          path: server/coverage.out
+          retention-days: 14
