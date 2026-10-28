@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	RecentSearchTypeMessages    = "messages"
-	RecentSearchTypeFiles       = "files"
-	RecentSearchMaxTermsRunes   = 2048
-	RecentSearchLimit           = 5
-	RecentSearchWSActionSave    = "save"
-	RecentSearchWSActionDelete  = "delete"
+	RecentSearchTypeMessages   = "messages"
+	RecentSearchTypeFiles      = "files"
+	RecentSearchMaxTermsRunes  = 2048
+	RecentSearchLimit          = 5
+	RecentSearchWSActionSave   = "save"
+	RecentSearchWSActionDelete = "delete"
 )
 
 // RecentSearch is one persisted message or file search for a user.
