@@ -1,5 +1,76 @@
 # [![Mattermost logo](https://user-images.githubusercontent.com/7205829/137170381-fe86eef0-bccc-4fdd-8e92-b258884ebdd7.png)](https://mattermost.com)
 
+# Proyecto 
+
+**Universidad CENFOTEC**  
+**Escuela de Ingeniería del Software**
+**Equipo:** Foo  
+**Curso:** PSWE-07  
+
+## Integrantes
+
+- Braulio Rivera Espinoza
+- Daniel Canessa Valverde
+- Roberto Obed Del Cid Winter
+- Roger Fonseca Montero
+
+## Introducción
+
+Para el proyecto del curso **PSWE-07**, el equipo Foo trabajará sobre **Mattermost**.
+
+Como mejora del sistema se seleccionó el issue [#15976 - Allow users to access recent searches](https://github.com/mattermost/mattermost/issues/15976). Este issue propone incorporar al buscador de Mattermost la posibilidad de consultar búsquedas realizadas recientemente.
+
+La funcionalidad propuesta permitirá mostrar hasta cinco búsquedas recientes, ordenadas de la más reciente a la más antigua, dentro del panel de búsqueda. Además, el usuario podrá reutilizar una búsqueda anterior y eliminar individualmente elementos del historial reciente.
+
+El proyecto analizará el comportamiento actual de Mattermost, el alcance de la mejora, los componentes involucrados y los cambios necesarios para incorporar esta funcionalidad, siguiendo el proceso de análisis, diseño, desarrollo, pruebas y documentación definido para el curso.
+
+## Alcance
+
+El alcance del proyecto se limita a la implementación de la funcionalidad descrita en el issue **#15976**, relacionada con la gestión de búsquedas recientes en Mattermost.
+
+La mejora contempla:
+
+- Registrar las búsquedas realizadas recientemente por el usuario.
+- Mostrar un máximo de cinco búsquedas recientes.
+- Ordenar las búsquedas de la más reciente a la más antigua.
+- Mostrar las búsquedas recientes dentro del panel de búsqueda de Mattermost.
+- Permitir reutilizar una búsqueda reciente.
+- Permitir eliminar individualmente una búsqueda reciente.
+- Modificar la interfaz, la lógica de aplicación y la persistencia para gestionar el historial de búsquedas recientes de cada usuario.
+- Implementar las pruebas necesarias para validar el comportamiento de la funcionalidad.
+
+Quedan fuera del alcance cambios generales al funcionamiento del motor de búsqueda de Mattermost, modificaciones al algoritmo de búsqueda, nuevas capacidades de filtrado y cualquier funcionalidad que no esté directamente relacionada con la gestión de búsquedas recientes definida en el issue seleccionado.
+
+La implementación se limita a la aplicación web y los cambios necesarios en el servidor y la persistencia. La aplicación móvil queda fuera del alcance.
+
+## Diagrama de arquitectura C4
+
+Como parte del análisis inicial se incluye un **diagrama C4 de Nivel 1 - System Context** que representa el contexto actual de Mattermost y sus interacciones con el miembro del equipo y el administrador.
+
+El diagrama describe el sistema de forma general. El alcance de la mejora de búsquedas recientes y los cambios previstos en interfaz, lógica de aplicación y persistencia se documentan en la sección de alcance.
+
+<!-- Fuente: docs/project/c4-context.md. Si cambia el diagrama, actualizar ambos. -->
+```mermaid
+C4Context
+  title Mattermost: contexto actual (C4 nivel 1)
+
+  Person(miembro, "Miembro del equipo", "Se comunica y colabora con otros miembros del equipo.")
+  Person(admin, "Administrador", "Instala y configura la instancia autoalojada del equipo.")
+
+  System(mattermost, "Mattermost", "Plataforma de comunicación y colaboración con canales, mensajes, hilos y búsqueda.")
+
+  Rel(miembro, mattermost, "Participa en canales, envía mensajes y busca información")
+  Rel(admin, mattermost, "Administra y configura la instancia")
+
+  UpdateRelStyle(miembro, mattermost, $offsetX="-150", $offsetY="-30")
+  UpdateRelStyle(admin, mattermost, $offsetX="40", $offsetY="-10")
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
+```
+
+El detalle de cada elemento y relación, junto con el alcance de esta vista, está en [`docs/project/c4-context.md`](docs/project/c4-context.md).
+
+# Readme de upstream
+
 [Mattermost](https://mattermost.com) is an open core, self-hosted collaboration platform that offers chat, workflow automation, voice calling, screen sharing, and AI integration. This repo is the primary source for core development on the Mattermost platform; it's written in Go and React, runs as a single Linux binary, and relies on PostgreSQL. A new compiled version is released under an MIT license every month on the 16th.
 
 [Deploy Mattermost on-premises](https://mattermost.com/deploy/?utm_source=github-mattermost-server-readme), or [try it for free in the cloud](https://mattermost.com/sign-up/?utm_source=github-mattermost-server-readme).
