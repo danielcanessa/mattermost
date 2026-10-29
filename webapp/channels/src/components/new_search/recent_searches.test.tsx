@@ -105,7 +105,10 @@ describe('components/new_search/RecentSearches', () => {
             {entities: {search: {recentSearches: [makeItem()]}}},
         );
 
-        await userEvent.click(screen.getByRole('button', {name: 'Clear hello from:me'}));
+        // Clear is opacity/pointer-events gated until the row is hovered or focused.
+        const clearButton = screen.getByRole('button', {name: 'Clear hello from:me'});
+        clearButton.focus();
+        await userEvent.click(clearButton);
         expect(onSearch).not.toHaveBeenCalled();
     });
 
