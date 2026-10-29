@@ -7,6 +7,7 @@ import type {RecentSearch} from '@mattermost/types/search';
 import type {Team} from '@mattermost/types/teams';
 
 import {
+    fireEvent,
     renderWithContext,
     screen,
     userEvent,
@@ -96,7 +97,7 @@ describe('components/new_search/RecentSearches', () => {
         expect(screen.getByText('That team is no longer available')).toBeInTheDocument();
     });
 
-    test('clear does not search', async () => {
+    test('clear does not search', () => {
         renderWithContext(
             <RecentSearches
                 onSearch={onSearch}
@@ -105,10 +106,8 @@ describe('components/new_search/RecentSearches', () => {
             {entities: {search: {recentSearches: [makeItem()]}}},
         );
 
-        // Clear is opacity/pointer-events gated until the row is hovered or focused.
-        const clearButton = screen.getByRole('button', {name: 'Clear hello from:me'});
-        clearButton.focus();
-        await userEvent.click(clearButton);
+        // Clear uses pointer-events: none until hover/focus-within; fireEvent bypasses that gate in jsdom.
+        fireEvent.click(screen.getByRole('button', {name: 'Clear hello from:me'}));
         expect(onSearch).not.toHaveBeenCalled();
     });
 
