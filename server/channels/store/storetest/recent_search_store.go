@@ -4,6 +4,7 @@
 package storetest
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ import (
 
 func TestRecentSearchStore(t *testing.T, rctx request.CTX, ss store.Store, s SqlStore) {
 	t.Run("SaveUpsert", func(t *testing.T) { testRecentSearchSaveUpsert(t, rctx, ss) })
-	t.Run("RetainFive", func(t *testing.T) { testRecentSearchRetainFive(t, rctx, ss) })
+	t.Run("Limits", func(t *testing.T) { testRecentSearchLimits(t, rctx, ss) })
 	t.Run("TrimTerms", func(t *testing.T) { testRecentSearchTrimTerms(t, rctx, ss) })
 	t.Run("OwnerScopedDelete", func(t *testing.T) { testRecentSearchOwnerScopedDelete(t, rctx, ss) })
 	t.Run("EmptyTeamId", func(t *testing.T) { testRecentSearchEmptyTeamId(t, rctx, ss) })
@@ -69,29 +70,39 @@ func testRecentSearchSaveUpsert(t *testing.T, rctx request.CTX, ss store.Store) 
 	require.Equal(t, "hello from:me", list[0].Terms)
 }
 
-func testRecentSearchRetainFive(t *testing.T, rctx request.CTX, ss store.Store) {
+func testRecentSearchLimits(t *testing.T, rctx request.CTX, ss store.Store) {
 	userID := model.NewId()
-
-	var saved []*model.RecentSearch
-	for i := range 6 {
-		item, err := ss.RecentSearch().Save(newRecentSearch(userID, "query-"+model.NewId(), model.RecentSearchTypeMessages, ""))
-		require.NoError(t, err)
-		saved = append(saved, item)
-		if i < 5 {
-			time.Sleep(2 * time.Millisecond)
-		}
-	}
 
 	list, err := ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
 	require.NoError(t, err)
-	require.Len(t, list, 5)
+	require.NotNil(t, list)
+	require.Empty(t, list)
 
-	ids := map[string]bool{}
-	for _, item := range list {
-		ids[item.Id] = true
+	// Fixed UpdateAt values make the newest-first order and the pruned row deterministic.
+	base := model.GetMillis()
+	var saved []*model.RecentSearch
+	for i := range model.RecentSearchLimit + 1 {
+		rs := newRecentSearch(userID, fmt.Sprintf("query-%d", i), model.RecentSearchTypeMessages, "")
+		rs.UpdateAt = base + int64(i)
+		item, err := ss.RecentSearch().Save(rs)
+		require.NoError(t, err)
+		saved = append(saved, item)
+
+		list, err := ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
+		require.NoError(t, err)
+		require.Len(t, list, min(i+1, model.RecentSearchLimit))
+		require.Equal(t, item.Id, list[0].Id)
 	}
-	require.False(t, ids[saved[0].Id], "oldest search should be pruned")
-	require.True(t, ids[saved[5].Id], "newest search should be kept")
+
+	list, err = ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
+	require.NoError(t, err)
+	require.Len(t, list, model.RecentSearchLimit)
+	for i, item := range list {
+		require.Equal(t, saved[model.RecentSearchLimit-i].Id, item.Id)
+	}
+	for _, item := range list {
+		require.NotEqual(t, saved[0].Id, item.Id, "oldest search should be pruned")
+	}
 }
 
 func testRecentSearchTrimTerms(t *testing.T, rctx request.CTX, ss store.Store) {

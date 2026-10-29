@@ -142,3 +142,67 @@ func TestRecentSearchServerOwnedFields(t *testing.T) {
 		require.Equal(t, "owned by user one", list.Items[0].Terms)
 	})
 }
+
+func TestRecentSearchIsolation(t *testing.T) {
+	mainHelper.Parallel(t)
+	th := Setup(t).InitBasic(t)
+	clientA := th.Client
+	userA := th.BasicUser.Id
+
+	searchA, _, err := clientA.SaveRecentSearch(context.Background(), "me", &model.RecentSearch{
+		Terms:      "private to user one",
+		SearchType: model.RecentSearchTypeMessages,
+	})
+	require.NoError(t, err)
+
+	clientB := th.CreateClient()
+	th.LoginBasic2WithClient(t, clientB)
+
+	requireSearchAIntact := func(t *testing.T) {
+		t.Helper()
+		list, _, err := clientA.GetRecentSearches(context.Background(), "me")
+		require.NoError(t, err)
+		require.Len(t, list.Items, 1)
+		require.Equal(t, searchA.Id, list.Items[0].Id)
+		require.Equal(t, searchA.Terms, list.Items[0].Terms)
+	}
+
+	t.Run("B cannot GET A's searches", func(t *testing.T) {
+		_, resp, err := clientB.GetRecentSearches(context.Background(), userA)
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+	})
+
+	t.Run("B cannot POST to A's searches", func(t *testing.T) {
+		_, resp, err := clientB.SaveRecentSearch(context.Background(), userA, &model.RecentSearch{
+			Terms:      "injected by user two",
+			SearchType: model.RecentSearchTypeMessages,
+		})
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+		requireSearchAIntact(t)
+	})
+
+	t.Run("B cannot DELETE on A's route", func(t *testing.T) {
+		resp, err := clientB.DeleteRecentSearch(context.Background(), userA, searchA.Id)
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+		requireSearchAIntact(t)
+	})
+
+	t.Run("B deleting A's id on own route is 404", func(t *testing.T) {
+		resp, err := clientB.DeleteRecentSearch(context.Background(), "me", searchA.Id)
+		require.Error(t, err)
+		CheckNotFoundStatus(t, resp)
+		requireSearchAIntact(t)
+	})
+
+	t.Run("system admin cannot GET another user's searches", func(t *testing.T) {
+		adminClient := th.CreateClient()
+		th.LoginSystemAdminWithClient(t, adminClient)
+
+		_, resp, err := adminClient.GetRecentSearches(context.Background(), userA)
+		require.Error(t, err)
+		CheckForbiddenStatus(t, resp)
+	})
+}
