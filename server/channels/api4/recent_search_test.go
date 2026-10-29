@@ -92,3 +92,53 @@ func TestRecentSearchesAPI(t *testing.T) {
 		CheckUnauthorizedStatus(t, resp)
 	})
 }
+
+func TestRecentSearchServerOwnedFields(t *testing.T) {
+	mainHelper.Parallel(t)
+	th := Setup(t).InitBasic(t)
+	client := th.Client
+
+	t.Run("POST ignores client id and create_at", func(t *testing.T) {
+		clientID := model.NewId()
+		before := model.GetMillis()
+
+		saved, resp, err := client.SaveRecentSearch(context.Background(), "me", &model.RecentSearch{
+			Id:         clientID,
+			Terms:      "client owned fields",
+			SearchType: model.RecentSearchTypeMessages,
+			CreateAt:   1,
+			UpdateAt:   1,
+		})
+		require.NoError(t, err)
+		CheckOKStatus(t, resp)
+		require.NotEqual(t, clientID, saved.Id)
+		require.GreaterOrEqual(t, saved.CreateAt, before)
+		require.GreaterOrEqual(t, saved.UpdateAt, before)
+	})
+
+	t.Run("POST with another user's id is not a 500 and keeps their row", func(t *testing.T) {
+		original, _, err := client.SaveRecentSearch(context.Background(), "me", &model.RecentSearch{
+			Terms:      "owned by user one",
+			SearchType: model.RecentSearchTypeFiles,
+		})
+		require.NoError(t, err)
+
+		client2 := th.CreateClient()
+		th.LoginBasic2WithClient(t, client2)
+		saved, resp, err := client2.SaveRecentSearch(context.Background(), "me", &model.RecentSearch{
+			Id:         original.Id,
+			Terms:      "written by user two",
+			SearchType: model.RecentSearchTypeFiles,
+		})
+		require.NoError(t, err)
+		CheckOKStatus(t, resp)
+		require.NotEqual(t, original.Id, saved.Id)
+		require.Equal(t, th.BasicUser2.Id, saved.UserId)
+
+		list, _, err := client.GetRecentSearches(context.Background(), "me")
+		require.NoError(t, err)
+		require.NotEmpty(t, list.Items)
+		require.Equal(t, original.Id, list.Items[0].Id)
+		require.Equal(t, "owned by user one", list.Items[0].Terms)
+	})
+}
