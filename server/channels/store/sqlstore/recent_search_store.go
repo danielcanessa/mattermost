@@ -54,7 +54,7 @@ func (s *SqlRecentSearchStore) Save(search *model.RecentSearch) (*model.RecentSe
 		Insert("recentsearchqueries").
 		Columns("id", "userid", "terms", "searchtype", "teamid", "createat", "updateat").
 		Values(search.Id, search.UserId, search.Terms, search.SearchType, search.TeamId, search.CreateAt, search.UpdateAt).
-		Suffix("ON CONFLICT (userid, terms, searchtype, teamid) DO UPDATE SET updateat = EXCLUDED.updateat RETURNING id, userid, terms, searchtype, teamid, createat, updateat")
+		Suffix("ON CONFLICT (userid, (md5(terms)), searchtype, teamid) DO UPDATE SET updateat = EXCLUDED.updateat RETURNING id, userid, terms, searchtype, teamid, createat, updateat")
 
 	query, args, err := insertBuilder.ToSql()
 	if err != nil {

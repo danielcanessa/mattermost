@@ -4,8 +4,10 @@
 package storetest
 
 import (
+	"math/rand/v2"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,6 +21,19 @@ func TestRecentSearchStore(t *testing.T, rctx request.CTX, ss store.Store, s Sql
 	t.Run("RetainFive", func(t *testing.T) { testRecentSearchRetainFive(t, rctx, ss) })
 	t.Run("TrimTerms", func(t *testing.T) { testRecentSearchTrimTerms(t, rctx, ss) })
 	t.Run("OwnerScopedDelete", func(t *testing.T) { testRecentSearchOwnerScopedDelete(t, rctx, ss) })
+	t.Run("EmptyTeamId", func(t *testing.T) { testRecentSearchEmptyTeamId(t, rctx, ss) })
+	t.Run("LongMultibyteTerms", func(t *testing.T) { testRecentSearchLongMultibyteTerms(t, rctx, ss) })
+}
+
+// longRecentSearchTerms returns RecentSearchMaxTermsRunes CJK runes from a fixed seed. Random runes keep
+// PostgreSQL from compressing the value below the btree row limit, as a repeated rune would.
+func longRecentSearchTerms() string {
+	rng := rand.New(rand.NewPCG(2048, 26))
+	runes := make([]rune, model.RecentSearchMaxTermsRunes)
+	for i := range runes {
+		runes[i] = rune(0x4E00 + rng.IntN(0x9FFF-0x4E00))
+	}
+	return string(runes)
 }
 
 func newRecentSearch(userID, terms, searchType, teamID string) *model.RecentSearch {
@@ -120,4 +135,39 @@ func testRecentSearchOwnerScopedDelete(t *testing.T, rctx request.CTX, ss store.
 	err = ss.RecentSearch().Delete(ownerID, saved.Id)
 	require.Error(t, err)
 	require.ErrorAs(t, err, &nf)
+}
+
+func testRecentSearchEmptyTeamId(t *testing.T, rctx request.CTX, ss store.Store) {
+	userID := model.NewId()
+
+	saved, err := ss.RecentSearch().Save(newRecentSearch(userID, "no team", model.RecentSearchTypeMessages, ""))
+	require.NoError(t, err)
+	require.Equal(t, "", saved.TeamId)
+
+	list, err := ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, "", list[0].TeamId)
+	require.Equal(t, saved.Id, list[0].Id)
+}
+
+func testRecentSearchLongMultibyteTerms(t *testing.T, rctx request.CTX, ss store.Store) {
+	userID := model.NewId()
+	terms := longRecentSearchTerms()
+	require.Equal(t, model.RecentSearchMaxTermsRunes, utf8.RuneCountInString(terms))
+
+	first, err := ss.RecentSearch().Save(newRecentSearch(userID, terms, model.RecentSearchTypeMessages, ""))
+	require.NoError(t, err)
+
+	second := newRecentSearch(userID, terms, model.RecentSearchTypeMessages, "")
+	second.UpdateAt = first.UpdateAt + 1
+	saved, err := ss.RecentSearch().Save(second)
+	require.NoError(t, err)
+	require.Equal(t, first.Id, saved.Id)
+
+	list, err := ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, first.Id, list[0].Id)
+	require.Equal(t, terms, list[0].Terms)
 }
