@@ -1498,8 +1498,6 @@ type ChannelJoinRequestStore interface {
 }
 
 // RecentSearchStore persists the last five message/file searches per user.
-// TimerLayer and RetryLayer expose this store through the embedded child Store
-// until `make store-layers` is regenerated.
 type RecentSearchStore interface {
 	Save(search *model.RecentSearch) (*model.RecentSearch, error)
 	GetByUser(userID string, limit int) ([]*model.RecentSearch, error)

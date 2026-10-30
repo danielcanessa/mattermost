@@ -47,11 +47,12 @@ describe('components/new_search/RecentSearches', () => {
         expect(container).toBeEmptyDOMElement();
     });
 
-    test('renders newest first and limits to five', () => {
+    test('renders only five searches in the received order', () => {
+        // Deliberately unsorted timestamps ensure the panel preserves the order supplied by Redux.
         const items = [
             makeItem({id: 'a', terms: 'first', update_at: 50}),
             makeItem({id: 'b', terms: 'second', update_at: 40}),
-            makeItem({id: 'c', terms: 'third', update_at: 30}),
+            makeItem({id: 'c', terms: 'third', update_at: 60}),
             makeItem({id: 'd', terms: 'fourth', update_at: 20}),
             makeItem({id: 'e', terms: 'fifth', update_at: 10}),
             makeItem({id: 'f', terms: 'sixth', update_at: 1}),
@@ -65,8 +66,9 @@ describe('components/new_search/RecentSearches', () => {
             {entities: {search: {recentSearches: items}}},
         );
 
-        expect(screen.getByText('first')).toBeInTheDocument();
-        expect(screen.getByText('fifth')).toBeInTheDocument();
+        // Accessible rerun buttons expose both the visible query order and the exact display limit.
+        const buttons = screen.getAllByRole('button', {name: /^Search again: /});
+        expect(buttons.map((button) => button.textContent)).toEqual(['first', 'second', 'third', 'fourth', 'fifth']);
         expect(screen.queryByText('sixth')).not.toBeInTheDocument();
     });
 

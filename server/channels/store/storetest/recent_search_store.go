@@ -19,6 +19,7 @@ import (
 
 func TestRecentSearchStore(t *testing.T, rctx request.CTX, ss store.Store, s SqlStore) {
 	t.Run("SaveUpsert", func(t *testing.T) { testRecentSearchSaveUpsert(t, rctx, ss) })
+	t.Run("RecencyOrder", func(t *testing.T) { testRecentSearchRecencyOrder(t, rctx, ss) })
 	t.Run("Limits", func(t *testing.T) { testRecentSearchLimits(t, rctx, ss) })
 	t.Run("TrimTerms", func(t *testing.T) { testRecentSearchTrimTerms(t, rctx, ss) })
 	t.Run("OwnerScopedDelete", func(t *testing.T) { testRecentSearchOwnerScopedDelete(t, rctx, ss) })
@@ -68,6 +69,42 @@ func testRecentSearchSaveUpsert(t *testing.T, rctx request.CTX, ss store.Store) 
 	require.Len(t, list, 1)
 	require.Equal(t, first.Id, list[0].Id)
 	require.Equal(t, "hello from:me", list[0].Terms)
+}
+
+// testRecentSearchRecencyOrder covers newest-first reads and promotion of a repeated search.
+func testRecentSearchRecencyOrder(t *testing.T, rctx request.CTX, ss store.Store) {
+	userID := model.NewId()
+	teamID := model.NewId()
+	var saved []*model.RecentSearch
+
+	// Explicit timestamps avoid ties when several saves occur in the same millisecond.
+	for i, terms := range []string{"query-a", "query-b", "query-c"} {
+		search := newRecentSearch(userID, terms, model.RecentSearchTypeMessages, teamID)
+		search.CreateAt = 1000 + int64(i)
+		search.UpdateAt = search.CreateAt
+		item, err := ss.RecentSearch().Save(search)
+		require.NoError(t, err)
+		saved = append(saved, item)
+	}
+
+	list, err := ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
+	require.NoError(t, err)
+	require.Equal(t, []*model.RecentSearch{saved[2], saved[1], saved[0]}, list)
+
+	// A fresh ID exercises the conflict key used when the same query is submitted again.
+	repeated := newRecentSearch(userID, saved[0].Terms, model.RecentSearchTypeMessages, teamID)
+	repeated.CreateAt = 2000
+	repeated.UpdateAt = 2000
+	updated, err := ss.RecentSearch().Save(repeated)
+	require.NoError(t, err)
+	require.Equal(t, saved[0].Id, updated.Id)
+	require.Equal(t, saved[0].CreateAt, updated.CreateAt)
+	require.Equal(t, repeated.UpdateAt, updated.UpdateAt)
+
+	// Comparing the entire list checks promotion, uniqueness, and the remaining order together.
+	list, err = ss.RecentSearch().GetByUser(userID, model.RecentSearchLimit)
+	require.NoError(t, err)
+	require.Equal(t, []*model.RecentSearch{updated, saved[2], saved[1]}, list)
 }
 
 func testRecentSearchLimits(t *testing.T, rctx request.CTX, ss store.Store) {

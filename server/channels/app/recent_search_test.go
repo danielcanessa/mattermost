@@ -106,10 +106,8 @@ func TestRecentSearchServerOwnedFields(t *testing.T) {
 
 		list, appErr := th.App.GetRecentSearchesForUser(th.Context, th.BasicUser.Id)
 		require.Nil(t, appErr)
-		require.NotEmpty(t, list.Items)
-		require.Equal(t, original.Id, list.Items[0].Id)
-		require.Equal(t, "owned by user one", list.Items[0].Terms)
-		require.Equal(t, original.UpdateAt, list.Items[0].UpdateAt)
+		// Other subtests may save in the same millisecond; match the unchanged row by its complete value.
+		require.Contains(t, list.Items, original)
 	})
 }
 
