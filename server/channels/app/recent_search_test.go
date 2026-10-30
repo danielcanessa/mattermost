@@ -66,6 +66,53 @@ func TestSaveRecentSearch(t *testing.T) {
 	})
 }
 
+func TestRecentSearchServerOwnedFields(t *testing.T) {
+	mainHelper.Parallel(t)
+	th := Setup(t).InitBasic(t)
+
+	t.Run("ignores client-supplied id and timestamps", func(t *testing.T) {
+		clientID := model.NewId()
+		before := model.GetMillis()
+
+		saved, appErr := th.App.SaveRecentSearch(th.Context, th.BasicUser.Id, &model.RecentSearch{
+			Id:         clientID,
+			Terms:      "client owned fields",
+			SearchType: model.RecentSearchTypeMessages,
+			CreateAt:   1,
+			UpdateAt:   1,
+		})
+		require.Nil(t, appErr)
+		require.NotEqual(t, clientID, saved.Id)
+		require.True(t, model.IsValidId(saved.Id))
+		require.GreaterOrEqual(t, saved.CreateAt, before)
+		require.GreaterOrEqual(t, saved.UpdateAt, before)
+	})
+
+	t.Run("reusing another user's id does not touch their search", func(t *testing.T) {
+		original, appErr := th.App.SaveRecentSearch(th.Context, th.BasicUser.Id, &model.RecentSearch{
+			Terms:      "owned by user one",
+			SearchType: model.RecentSearchTypeMessages,
+		})
+		require.Nil(t, appErr)
+
+		saved, appErr := th.App.SaveRecentSearch(th.Context, th.BasicUser2.Id, &model.RecentSearch{
+			Id:         original.Id,
+			Terms:      "written by user two",
+			SearchType: model.RecentSearchTypeMessages,
+		})
+		require.Nil(t, appErr)
+		require.NotEqual(t, original.Id, saved.Id)
+		require.Equal(t, th.BasicUser2.Id, saved.UserId)
+
+		list, appErr := th.App.GetRecentSearchesForUser(th.Context, th.BasicUser.Id)
+		require.Nil(t, appErr)
+		require.NotEmpty(t, list.Items)
+		require.Equal(t, original.Id, list.Items[0].Id)
+		require.Equal(t, "owned by user one", list.Items[0].Terms)
+		require.Equal(t, original.UpdateAt, list.Items[0].UpdateAt)
+	})
+}
+
 func TestDeleteRecentSearch(t *testing.T) {
 	mainHelper.Parallel(t)
 	th := Setup(t).InitBasic(t)

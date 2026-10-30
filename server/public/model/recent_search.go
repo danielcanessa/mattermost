@@ -39,9 +39,6 @@ func (r *RecentSearch) PreSave() {
 		r.Id = NewId()
 	}
 	r.Terms = strings.TrimSpace(r.Terms)
-	if r.TeamId == "" {
-		r.TeamId = ""
-	}
 
 	now := GetMillis()
 	if r.CreateAt == 0 {

@@ -461,3 +461,5 @@ channels/db/migrations/postgres/000232_create_healthfindings_lastseenat_index.do
 channels/db/migrations/postgres/000232_create_healthfindings_lastseenat_index.up.sql
 channels/db/migrations/postgres/000233_create_recent_search_queries.down.sql
 channels/db/migrations/postgres/000233_create_recent_search_queries.up.sql
+channels/db/migrations/postgres/000234_alter_recent_search_queries_types.down.sql
+channels/db/migrations/postgres/000234_alter_recent_search_queries_types.up.sql

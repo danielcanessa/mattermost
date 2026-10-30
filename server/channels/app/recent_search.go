@@ -19,6 +19,10 @@ func (a *App) SaveRecentSearch(rctx request.CTX, userID string, search *model.Re
 		return nil, model.NewAppError("SaveRecentSearch", "api.recent_search.save.invalid.app_error", nil, "", http.StatusBadRequest)
 	}
 
+	// The server owns the id and timestamps; client-supplied values could collide with other rows.
+	search.Id = ""
+	search.CreateAt = 0
+	search.UpdateAt = 0
 	search.UserId = userID
 	search.PreSave()
 	if appErr := search.IsValid(); appErr != nil {
