@@ -138,6 +138,16 @@ jobs:
           # Paths are relative to server/; deleted files are skipped so gofmt and go vet only see existing files.
           git diff --name-only --relative --diff-filter=d "$BASE"...HEAD -- . | grep '\.go$' > "$RUNNER_TEMP/go-files.txt" || true
           xargs -r -n1 dirname < "$RUNNER_TEMP/go-files.txt" | sort -u | sed 's#^#./#' > "$RUNNER_TEMP/go-pkgs.txt"
+          # A change to this workflow has no Go files of its own; run the recent search packages so the PR
+          # shows the server job working end to end.
+          if [ -n "$(git diff --name-only "$BASE"...HEAD -- ../.github/workflows/team-ci.yml)" ]; then
+            printf '%s\n' ./channels/api4 ./channels/app ./channels/store/storetest >> "$RUNNER_TEMP/go-pkgs.txt"
+          fi
+          # storetest only holds shared store tests; they run from the sqlstore wrappers.
+          if grep -qx './channels/store/storetest' "$RUNNER_TEMP/go-pkgs.txt"; then
+            echo './channels/store/sqlstore' >> "$RUNNER_TEMP/go-pkgs.txt"
+          fi
+          sort -u -o "$RUNNER_TEMP/go-pkgs.txt" "$RUNNER_TEMP/go-pkgs.txt"
           cat "$RUNNER_TEMP/go-pkgs.txt"
           if [ -s "$RUNNER_TEMP/go-pkgs.txt" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -161,16 +171,41 @@ jobs:
         # Other changed packages still run their full suite.
         run: |
           : > coverage.out
+          mkdir -p "$RUNNER_TEMP/test-logs"
+          failed=0
           while read -r pkg; do
             [ -z "$pkg" ] && continue
+            log="$RUNNER_TEMP/test-logs/$(echo "${pkg#./}" | tr / _).json"
+            rm -f "$RUNNER_TEMP/cov.out"
+            status=0
+            # go test writes to a file instead of a pipe: the default shell is bash -e without pipefail.
             case "$pkg" in
               ./channels/api4|./channels/app)
-                go test -count=1 -timeout 10m -run RecentSearch -coverprofile="$RUNNER_TEMP/cov.out" "$pkg"
+                go test -json -count=1 -timeout 10m -run RecentSearch -coverprofile="$RUNNER_TEMP/cov.out" "$pkg" > "$log" || status=$?
                 ;;
               *)
-                go test -count=1 -timeout 15m -coverprofile="$RUNNER_TEMP/cov.out" "$pkg"
+                go test -json -count=1 -timeout 15m -coverprofile="$RUNNER_TEMP/cov.out" "$pkg" > "$log" || status=$?
                 ;;
             esac
+            echo "== $pkg"
+            # One line per RecentSearch test and subtest, then the package result line.
+            jq -rR 'fromjson? | select(.Test != null and (.Test | contains("RecentSearch")) and (.Action == "pass" or .Action == "fail" or .Action == "skip"))
+              | "--- \(.Action | ascii_upcase): \(.Test) (\(.Elapsed // 0)s)"' "$log"
+            jq -jR 'fromjson? | select(.Test == null and .Action == "output" and (.Output | test("^(ok|FAIL|\\?)\\s"))) | .Output' "$log"
+            if [ "$status" -ne 0 ]; then
+              failed=1
+              # Tests that failed or never finished (a timeout panic lands in the test that was running).
+              # Server JSON log lines are left out here; the full output is in the server-test-logs artifact.
+              echo "-- $pkg failed (exit $status); output of failed or unfinished tests, package and build:"
+              jq -jRs '[split("\n")[] | fromjson?] as $events
+                | ($events | map(select(.Test != null and .Action == "run") | .Test)) as $started
+                | ($events | map(select(.Test != null and (.Action == "pass" or .Action == "skip")) | .Test)) as $done
+                | (reduce ($started - $done)[] as $t ({}; .[$t] = true)) as $show
+                | $events[]
+                | select(.Action == "build-output" or (.Action == "output" and (.Test == null or $show[.Test])))
+                | .Output
+                | select(test("^\\{.*\"level\":|^\u001b\\[[0-9;]*m(debug|info|warn|error)") | not)' "$log"
+            fi
             if [ -f "$RUNNER_TEMP/cov.out" ]; then
               if [ ! -s coverage.out ]; then
                 cat "$RUNNER_TEMP/cov.out" > coverage.out
@@ -179,9 +214,16 @@ jobs:
               fi
             fi
           done < "$RUNNER_TEMP/go-pkgs.txt"
+          exit "$failed"
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         if: always() && steps.pkgs.outputs.changed == 'true'
         with:
           name: server-coverage
           path: server/coverage.out
+          retention-days: 14
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        if: always() && steps.pkgs.outputs.changed == 'true'
+        with:
+          name: server-test-logs
+          path: ${{ runner.temp }}/test-logs
           retention-days: 14
