@@ -59,6 +59,7 @@ type TimerLayer struct {
 	ReactionStore                   store.ReactionStore
 	ReadReceiptStore                store.ReadReceiptStore
 	RecapStore                      store.RecapStore
+	RecentSearchStore               store.RecentSearchStore
 	RemoteClusterStore              store.RemoteClusterStore
 	RetentionPolicyStore            store.RetentionPolicyStore
 	RoleStore                       store.RoleStore
@@ -245,6 +246,10 @@ func (s *TimerLayer) ReadReceipt() store.ReadReceiptStore {
 
 func (s *TimerLayer) Recap() store.RecapStore {
 	return s.RecapStore
+}
+
+func (s *TimerLayer) RecentSearch() store.RecentSearchStore {
+	return s.RecentSearchStore
 }
 
 func (s *TimerLayer) RemoteCluster() store.RemoteClusterStore {
@@ -537,6 +542,11 @@ type TimerLayerReadReceiptStore struct {
 
 type TimerLayerRecapStore struct {
 	store.RecapStore
+	Root *TimerLayer
+}
+
+type TimerLayerRecentSearchStore struct {
+	store.RecentSearchStore
 	Root *TimerLayer
 }
 
@@ -9983,6 +9993,54 @@ func (s *TimerLayerRecapStore) UpdateRecapStatus(id string, status string) error
 	return err
 }
 
+func (s *TimerLayerRecentSearchStore) Delete(userID string, id string) error {
+	start := time.Now()
+
+	err := s.RecentSearchStore.Delete(userID, id)
+
+	elapsed := float64(time.Since(start)) / float64(time.Second)
+	if s.Root.Metrics != nil {
+		success := "false"
+		if err == nil {
+			success = "true"
+		}
+		s.Root.Metrics.ObserveStoreMethodDuration("RecentSearchStore.Delete", success, elapsed)
+	}
+	return err
+}
+
+func (s *TimerLayerRecentSearchStore) GetByUser(userID string, limit int) ([]*model.RecentSearch, error) {
+	start := time.Now()
+
+	result, err := s.RecentSearchStore.GetByUser(userID, limit)
+
+	elapsed := float64(time.Since(start)) / float64(time.Second)
+	if s.Root.Metrics != nil {
+		success := "false"
+		if err == nil {
+			success = "true"
+		}
+		s.Root.Metrics.ObserveStoreMethodDuration("RecentSearchStore.GetByUser", success, elapsed)
+	}
+	return result, err
+}
+
+func (s *TimerLayerRecentSearchStore) Save(search *model.RecentSearch) (*model.RecentSearch, error) {
+	start := time.Now()
+
+	result, err := s.RecentSearchStore.Save(search)
+
+	elapsed := float64(time.Since(start)) / float64(time.Second)
+	if s.Root.Metrics != nil {
+		success := "false"
+		if err == nil {
+			success = "true"
+		}
+		s.Root.Metrics.ObserveStoreMethodDuration("RecentSearchStore.Save", success, elapsed)
+	}
+	return result, err
+}
+
 func (s *TimerLayerRemoteClusterStore) Delete(remoteClusterID string) (bool, error) {
 	start := time.Now()
 
@@ -16196,6 +16254,7 @@ func New(childStore store.Store, metrics einterfaces.MetricsInterface) *TimerLay
 	newStore.ReactionStore = &TimerLayerReactionStore{ReactionStore: childStore.Reaction(), Root: &newStore}
 	newStore.ReadReceiptStore = &TimerLayerReadReceiptStore{ReadReceiptStore: childStore.ReadReceipt(), Root: &newStore}
 	newStore.RecapStore = &TimerLayerRecapStore{RecapStore: childStore.Recap(), Root: &newStore}
+	newStore.RecentSearchStore = &TimerLayerRecentSearchStore{RecentSearchStore: childStore.RecentSearch(), Root: &newStore}
 	newStore.RemoteClusterStore = &TimerLayerRemoteClusterStore{RemoteClusterStore: childStore.RemoteCluster(), Root: &newStore}
 	newStore.RetentionPolicyStore = &TimerLayerRetentionPolicyStore{RetentionPolicyStore: childStore.RetentionPolicy(), Root: &newStore}
 	newStore.RoleStore = &TimerLayerRoleStore{RoleStore: childStore.Role(), Root: &newStore}

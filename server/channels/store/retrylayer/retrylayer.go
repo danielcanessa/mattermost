@@ -60,6 +60,7 @@ type RetryLayer struct {
 	ReactionStore                   store.ReactionStore
 	ReadReceiptStore                store.ReadReceiptStore
 	RecapStore                      store.RecapStore
+	RecentSearchStore               store.RecentSearchStore
 	RemoteClusterStore              store.RemoteClusterStore
 	RetentionPolicyStore            store.RetentionPolicyStore
 	RoleStore                       store.RoleStore
@@ -246,6 +247,10 @@ func (s *RetryLayer) ReadReceipt() store.ReadReceiptStore {
 
 func (s *RetryLayer) Recap() store.RecapStore {
 	return s.RecapStore
+}
+
+func (s *RetryLayer) RecentSearch() store.RecentSearchStore {
+	return s.RecentSearchStore
 }
 
 func (s *RetryLayer) RemoteCluster() store.RemoteClusterStore {
@@ -538,6 +543,11 @@ type RetryLayerReadReceiptStore struct {
 
 type RetryLayerRecapStore struct {
 	store.RecapStore
+	Root *RetryLayer
+}
+
+type RetryLayerRecentSearchStore struct {
+	store.RecentSearchStore
 	Root *RetryLayer
 }
 
@@ -12497,6 +12507,69 @@ func (s *RetryLayerRecapStore) UpdateRecapStatus(id string, status string) error
 
 }
 
+func (s *RetryLayerRecentSearchStore) Delete(userID string, id string) error {
+
+	tries := 0
+	for {
+		err := s.RecentSearchStore.Delete(userID, id)
+		if err == nil {
+			return nil
+		}
+		if !isRepeatableError(err) {
+			return err
+		}
+		tries++
+		if tries >= 3 {
+			err = errors.Wrap(err, "giving up after 3 consecutive repeatable transaction failures")
+			return err
+		}
+		timepkg.Sleep(100 * timepkg.Millisecond)
+	}
+
+}
+
+func (s *RetryLayerRecentSearchStore) GetByUser(userID string, limit int) ([]*model.RecentSearch, error) {
+
+	tries := 0
+	for {
+		result, err := s.RecentSearchStore.GetByUser(userID, limit)
+		if err == nil {
+			return result, nil
+		}
+		if !isRepeatableError(err) {
+			return result, err
+		}
+		tries++
+		if tries >= 3 {
+			err = errors.Wrap(err, "giving up after 3 consecutive repeatable transaction failures")
+			return result, err
+		}
+		timepkg.Sleep(100 * timepkg.Millisecond)
+	}
+
+}
+
+func (s *RetryLayerRecentSearchStore) Save(search *model.RecentSearch) (*model.RecentSearch, error) {
+
+	tries := 0
+	for {
+		result, err := s.RecentSearchStore.Save(search)
+		if err == nil {
+			return result, nil
+		}
+		if !isRepeatableError(err) {
+			return result, err
+		}
+		tries++
+		if tries >= 3 {
+			err = errors.Wrap(err, "giving up after 3 consecutive repeatable transaction failures")
+			return result, err
+		}
+		timepkg.Sleep(100 * timepkg.Millisecond)
+	}
+
+}
+
 func (s *RetryLayerRemoteClusterStore) Delete(remoteClusterID string) (bool, error) {
 
 	tries := 0
@@ -20429,6 +20502,7 @@ func New(childStore store.Store) *RetryLayer {
 	newStore.ReactionStore = &RetryLayerReactionStore{ReactionStore: childStore.Reaction(), Root: &newStore}
 	newStore.ReadReceiptStore = &RetryLayerReadReceiptStore{ReadReceiptStore: childStore.ReadReceipt(), Root: &newStore}
 	newStore.RecapStore = &RetryLayerRecapStore{RecapStore: childStore.Recap(), Root: &newStore}
+	newStore.RecentSearchStore = &RetryLayerRecentSearchStore{RecentSearchStore: childStore.RecentSearch(), Root: &newStore}
 	newStore.RemoteClusterStore = &RetryLayerRemoteClusterStore{RemoteClusterStore: childStore.RemoteCluster(), Root: &newStore}
 	newStore.RetentionPolicyStore = &RetryLayerRetentionPolicyStore{RetentionPolicyStore: childStore.RetentionPolicy(), Root: &newStore}
 	newStore.RoleStore = &RetryLayerRoleStore{RoleStore: childStore.Role(), Root: &newStore}
