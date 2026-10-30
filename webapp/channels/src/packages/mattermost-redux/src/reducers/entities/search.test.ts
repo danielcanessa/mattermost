@@ -338,6 +338,7 @@ describe('reducers.entities.search', () => {
         });
     });
 
+    // Literal actions keep reducer coverage independent of HTTP-facing action modules.
     describe('recentSearches', () => {
         const item = {
             id: 'rs1',
@@ -374,12 +375,59 @@ describe('reducers.entities.search', () => {
             expect(actualState.recentSearches.find((search) => search.id === 'old0')).toBeUndefined();
         });
 
+        it('puts a newly received search first and preserves the remaining recency order', () => {
+            // The incoming timestamp is newer, as it is after a successful save on the server.
+            const oldest = {...item, id: 'oldest', terms: 'oldest', update_at: 10};
+            const newest = {...item, id: 'newest', terms: 'newest', update_at: 20};
+            const incoming = {...item, id: 'incoming', terms: 'incoming', update_at: 30};
+            const existing = [newest, oldest];
+
+            const actualState = reducer({recentSearches: existing} as unknown as SearchState, {
+                type: SearchTypes.RECEIVED_RECENT_SEARCH,
+                data: incoming,
+            });
+
+            expect(actualState.recentSearches).toEqual([incoming, newest, oldest]);
+            expect(existing).toEqual([newest, oldest]);
+        });
+
+        // Cover unchanged query content as well as an ID match whose content differs.
+        it.each([item.terms, 'updated terms'])('moves a repeated search to the front without duplicating its id (%s)', (terms) => {
+            const newer = {...item, id: 'newer', terms: 'newer', update_at: 20};
+            const existing = [newer, item];
+            const repeated = {...item, terms, update_at: 30};
+
+            const actualState = reducer({recentSearches: existing} as unknown as SearchState, {
+                type: SearchTypes.RECEIVED_RECENT_SEARCH,
+                data: repeated,
+            });
+
+            expect(actualState.recentSearches).toEqual([repeated, newer]);
+            expect(existing).toEqual([newer, item]);
+        });
+
         it('deletes one item', () => {
+            // Keep the last-item boundary separate from removal within a longer list.
             const actualState = reducer({recentSearches: [item]} as unknown as SearchState, {
                 type: SearchTypes.REMOVED_RECENT_SEARCH,
                 data: 'rs1',
             });
             expect(actualState.recentSearches).toEqual([]);
+        });
+
+        it('removes the requested search and preserves the order of the others', () => {
+            // Keep a survivor on each side so removal cannot silently reorder the list.
+            const newest = {...item, id: 'newest', terms: 'newest', update_at: 30};
+            const oldest = {...item, id: 'oldest', terms: 'oldest', update_at: 1};
+            const existing = [newest, item, oldest];
+
+            const actualState = reducer({recentSearches: existing} as unknown as SearchState, {
+                type: SearchTypes.REMOVED_RECENT_SEARCH,
+                data: item.id,
+            });
+
+            expect(actualState.recentSearches).toEqual([newest, oldest]);
+            expect(existing).toEqual([newest, item, oldest]);
         });
 
         it('clears on logout', () => {

@@ -3019,6 +3019,8 @@ func TestSearchPostsForUser(t *testing.T) {
 				UserId:    th.BasicUser.Id,
 				ChannelId: th.BasicChannel.Id,
 				Message:   searchTerm,
+				// Distinct timestamps make every database and mocked search result order deterministic.
+				CreateAt: 1000 + int64(i),
 			}, th.BasicChannel, model.CreatePostFlags{SetOnline: true})
 
 			require.Nil(t, err)

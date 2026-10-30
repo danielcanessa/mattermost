@@ -137,9 +137,8 @@ func TestRecentSearchServerOwnedFields(t *testing.T) {
 
 		list, _, err := client.GetRecentSearches(context.Background(), "me")
 		require.NoError(t, err)
-		require.NotEmpty(t, list.Items)
-		require.Equal(t, original.Id, list.Items[0].Id)
-		require.Equal(t, "owned by user one", list.Items[0].Terms)
+		// Other subtests may save in the same millisecond; match the unchanged row by its complete value.
+		require.Contains(t, list.Items, original)
 	})
 }
 
