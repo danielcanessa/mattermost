@@ -1,0 +1,226 @@
+INSTRUCCIONES PARA ROGER
+Proyecto PSWE-07 · Equipo Foo · Mattermost
+Actualizado: 27/10/2026
+
+Repo del equipo:  https://github.com/danielcanessa/mattermost
+Tu rama:          feature/recent-searches
+Tu PR del equipo: #1  https://github.com/danielcanessa/mattermost/pull/1
+
+Estado actual:
+- El PR #3 (workflow de CI del equipo) ya está integrado en master.
+- Tu rama sigue en el commit del 21/10: todavía no tiene master ni la
+  limpieza.
+- El PR #39343 sigue abierto en el repositorio oficial de Mattermost.
+
+Lo que hay que hacer, en orden:
+
+  Paso 1. Cerrar el PR #39343 en el repositorio oficial de Mattermost.
+  Paso 2. Traer master a tu rama.
+  Paso 3. Limpiar la rama.
+  Paso 4. Hacer push y revisar el CI.
+  Paso 5. Pedir una nueva revisión de tu PR #1.
+
+Reglas para todos los pasos:
+  - Nunca usar "git push --force" ni "git rebase" en esta rama. Tu PR
+    ya está abierto y otros van a crear ramas a partir de la tuya.
+  - Todo push va al repo del equipo (danielcanessa/mattermost), nunca a
+    mattermost/mattermost.
+
+
+=====================================================================
+PASO 1. CERRAR EL PR #39343 EN EL REPOSITORIO OFICIAL
+=====================================================================
+
+Qué pasó:
+El 21/10 se abrió un PR con tu commit en el repositorio oficial de
+Mattermost, además del PR #1 en nuestro fork. Pasa fácil: cuando se
+abre un PR desde un fork, GitHub propone por defecto el repositorio
+original como destino.
+
+  https://github.com/mattermost/mattermost/pull/39343
+
+Por qué cerrarlo:
+- Contribuir a Mattermost no es parte del curso.
+- Es público y visible para los mantenedores de Mattermost.
+- La revisión automática de Mattermost (CodeRabbit) lo marcó como
+  posible spam por las casi 30 000 líneas de plantillas y skills.
+
+1a. ANTES de cerrarlo, copiá la revisión de CodeRabbit.
+    Tiene hallazgos reales sobre el código que nos sirven para los PR
+    de pruebas. Los más importantes:
+    - El servidor no reinicia el "id" ni el "CreateAt" que manda el
+      cliente al guardar una búsqueda.
+    - El "teamid" en CHAR(26) se rellena con espacios: una búsqueda
+      hecha "en todos los equipos" puede fallar al reutilizarla.
+    - El índice único puede rechazar términos de búsqueda largos y
+      devolver un error 500.
+    - Faltan textos de error en el catálogo en inglés, y hay que
+      regenerar las capas del store con "make store-layers".
+    - Reporta credenciales de base de datos escritas directamente en
+      archivos de plantilla de lidr-specboot/. Revisá si alguna es
+      real; si lo es, cambiala donde se use.
+    Copiala en un comentario de tu PR #1 para que quede junto al código.
+
+1b. Dejá un comentario corto en el PR #39343:
+      Opened against upstream by mistake; this is a course exercise on
+      our fork. Closing.
+
+1c. Cerralo con el botón "Close pull request", al final de la
+    conversación.
+
+1d. IMPORTANTE: si GitHub te ofrece el botón "Delete branch", NO lo
+    toqués. El PR #1 del equipo usa la misma rama; si la borrás, se
+    cierra también nuestro PR.
+
+
+=====================================================================
+PASO 2. TRAER MASTER A TU RAMA
+=====================================================================
+
+Por qué:
+Tu rama sale de un commit de Mattermost del 26/09, anterior a los
+commits del equipo. Le faltan el README del proyecto, el diagrama C4 y
+el workflow de CI. Si el workflow no está en tu rama, los PR de pruebas
+del resto del equipo (que salen de tu rama) no tendrían checks.
+
+Se usa merge y NO rebase: tu PR ya está abierto, y un rebase obliga a
+hacer push --force.
+
+2a. Revisá que el remoto apunte al repo del equipo:
+
+      git remote -v
+
+    La rama feature/recent-searches tiene que estar en
+    danielcanessa/mattermost. Si tu "origin" es tu fork personal,
+    en los comandos usá el remoto que apunta a danielcanessa/mattermost
+    en lugar de "origin".
+
+2b. Traé master:
+
+      git switch feature/recent-searches
+      git pull
+      git fetch origin
+      git merge origin/master
+
+    Si el merge muestra conflictos, no los resolvás a ciegas: si no
+    tenés claro cómo resolverlos, cancelá el merge con
+    "git merge --abort". No hagás push todavía; primero va la
+    limpieza (paso 3).
+
+
+=====================================================================
+PASO 3. LIMPIAR LA RAMA
+=====================================================================
+
+Por qué:
+Tu commit trae 205 archivos y 31 600 líneas, pero la funcionalidad son
+unas 1 700 líneas en 43 archivos de server/ y webapp/. Esto además
+atiende lo que se pidió en la revisión del PR #1: separar los .md y
+skills del cambio de la búsqueda. La tabla 2.3 del documento también
+dice "no incluir secretos ni archivos locales".
+
+Qué hacer con cada cosa:
+
+  lidr-specboot/   86 archivos, 18 186 líneas. Copia de una plantilla
+                   de specs.  -> Sacarlo del repo.
+
+  .cursor/         52 archivos, 10 397 líneas. Configuración y skills
+                   del editor.  -> Sacarlo del repo.
+
+  AGENTS.md        +7 líneas sobre un archivo de Mattermost.
+                   -> Devolverlo a como está en master.
+
+  user_stories.md y user_stories.enhanced.md
+                   -> Moverlos a docs/project/.
+
+  openspec/        Propuesta, diseño, tareas y reportes de verificación
+                   de la mejora.  -> CONSERVARLO por ahora. Es evidencia
+                   del uso de IA en el proceso. Si en la revisión se
+                   prefiere que vaya en un PR aparte, se mueve después.
+
+  api/v4/ y e2e-tests/
+                   Documentación de la API y prueba end-to-end de la
+                   mejora.  -> Conservarlos, son parte de la funcionalidad.
+
+3a. Comandos.
+
+    En PowerShell (Windows):
+
+      git rm -r --cached .cursor lidr-specboot
+      Add-Content -Path .git\info\exclude -Value ".cursor/","lidr-specboot/"
+      git checkout origin/master -- AGENTS.md
+      git mv user_stories.md user_stories.enhanced.md docs/project/
+
+    En Git Bash, macOS o Linux:
+
+      git rm -r --cached .cursor lidr-specboot
+      printf '.cursor/\nlidr-specboot/\n' >> .git/info/exclude
+      git checkout origin/master -- AGENTS.md
+      git mv user_stories.md user_stories.enhanced.md docs/project/
+
+    Notas:
+    - "--cached" saca los archivos del repo pero te los deja en tu
+      computadora.
+    - .git/info/exclude evita volver a subirlos por accidente, sin
+      tocar el .gitignore de Mattermost.
+    - La carpeta docs/project/ ya existe después del paso 2.
+
+3b. Revisá qué va a entrar en el commit antes de hacerlo:
+
+      git status
+
+    Deberían aparecer como borrados .cursor/ y lidr-specboot/, como
+    modificado AGENTS.md y como renombrados los dos user_stories.
+
+3c. Commit:
+
+      git commit -s -m "chore: remove local tooling files from feature branch"
+
+
+=====================================================================
+PASO 4. PUSH Y CI
+=====================================================================
+
+      git push
+
+El PR #1 se actualiza solo con el merge y la limpieza, y el workflow
+Team CI corre sobre él por primera vez.
+
+Si el CI falla, NO pasa nada: es justo para eso. La revisión de
+CodeRabbit ya señaló cosas que probablemente hagan fallar algún check
+(textos de error faltantes en el catálogo, capas del store sin
+regenerar con "make store-layers"). Abrí el job que falló, revisá el
+log y corregí el código. No modifiqués ni desactivés el workflow para
+que pase.
+
+Para ver la corrida:
+  https://github.com/danielcanessa/mattermost/actions
+
+
+=====================================================================
+PASO 5. PEDIR LA NUEVA REVISIÓN DE TU PR #1
+=====================================================================
+
+5a. En el PR #1, respondé el comentario de la revisión con algo así:
+      Traje master, saqué .cursor/ y lidr-specboot/, devolví AGENTS.md
+      y moví las user stories a docs/project/. Dejé openspec/ porque es
+      evidencia del uso de IA en el proceso; si preferís, lo paso a un
+      PR aparte.
+
+5b. En la columna derecha del PR, en "Reviewers", hacé clic en el
+    ícono de "Re-request review" junto al revisor, para que pueda
+    quitar el "Changes requested".
+
+
+=====================================================================
+RESULTADO ESPERADO
+=====================================================================
+
+- El PR #39343 queda cerrado y la rama sigue existiendo.
+- Tu rama trae master: el README, el C4 y el workflow de CI.
+- El PR #1 baja a unos 60 archivos, todos de la búsqueda reciente,
+  con Team CI corriendo sobre él.
+- El resto del equipo puede crear sus ramas de pruebas desde la tuya:
+    feature/recent-searches-persistencia
+    feature/recent-searches-orden
+    feature/recent-searches-integracion
