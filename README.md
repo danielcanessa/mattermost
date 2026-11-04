@@ -69,6 +69,8 @@ C4Context
 
 El detalle de cada elemento y relación, junto con el alcance de esta vista, está en [`docs/project/c4-context.md`](docs/project/c4-context.md).
 
+La vista de nivel 2 (contenedores) de la mejora de búsquedas recientes, con la webapp, el servidor y PostgreSQL, está en [`docs/project/c4-container.md`](docs/project/c4-container.md). Los archivos de instrucciones usados con herramientas de IA durante la implementación están en [`docs/project/ai/`](docs/project/ai/README.md).
+
 # Readme de upstream
 
 [Mattermost](https://mattermost.com) is an open core, self-hosted collaboration platform that offers chat, workflow automation, voice calling, screen sharing, and AI integration. This repo is the primary source for core development on the Mattermost platform; it's written in Go and React, runs as a single Linux binary, and relies on PostgreSQL. A new compiled version is released under an MIT license every month on the 16th.
