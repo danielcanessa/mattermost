@@ -76,6 +76,10 @@ export default class SearchBox {
         return this.recentSearches.getByRole('button', {name: `Search again: ${terms}`});
     }
 
+    getRecentSearchRow(terms: string) {
+        return this.getRecentSearch(terms).locator('xpath=ancestor::li[1]');
+    }
+
     getRecentSearchClear(terms: string) {
         return this.recentSearches.getByRole('button', {name: `Clear ${terms}`});
     }
