@@ -22,6 +22,8 @@ test('recent searches list, rerun, clear, and persist after reload', async ({pw}
     await expect(channelsPage.searchBox.container).not.toBeVisible();
 
     await channelsPage.globalHeader.openSearch();
+    // Clear is pointer-events:none until the row is hovered (expected UI behavior).
+    await channelsPage.searchBox.getRecentSearchRow('hello e2e recent').hover();
     await channelsPage.searchBox.getRecentSearchClear('hello e2e recent').click();
     await expect(channelsPage.searchBox.getRecentSearch('hello e2e recent')).not.toBeVisible();
 
