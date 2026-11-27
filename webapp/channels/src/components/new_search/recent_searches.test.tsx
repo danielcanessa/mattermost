@@ -6,11 +6,14 @@ import React from 'react';
 import type {RecentSearch} from '@mattermost/types/search';
 import type {Team} from '@mattermost/types/teams';
 
+import {Client4} from 'mattermost-redux/client';
+
 import {
     fireEvent,
     renderWithContext,
     screen,
     userEvent,
+    waitFor,
 } from 'tests/react_testing_utils';
 
 import RecentSearches from './recent_searches';
@@ -134,5 +137,113 @@ describe('components/new_search/RecentSearches', () => {
         screen.getByRole('button', {name: 'Search again: hello from:me'}).focus();
         await userEvent.keyboard('{Escape}');
         expect(onClose).toHaveBeenCalled();
+    });
+
+    test('caps the panel height at 550px and scrolls the overflow', () => {
+        renderWithContext(
+            <RecentSearches
+                onSearch={onSearch}
+                myTeams={[team]}
+            />,
+            {entities: {search: {recentSearches: [makeItem()]}}},
+        );
+
+        expect(screen.getByTestId('recentSearches')).toHaveStyle({maxHeight: '550px', overflowY: 'auto'});
+    });
+
+    test('reruns an all-teams search with an empty team id and no team warning', async () => {
+        renderWithContext(
+            <RecentSearches
+                onSearch={onSearch}
+                myTeams={[team]}
+            />,
+            {entities: {search: {recentSearches: [makeItem({team_id: '', search_type: 'files', terms: 'report ext:pdf'})]}}},
+        );
+
+        await userEvent.click(screen.getByRole('button', {name: 'Search again: report ext:pdf'}));
+        expect(onSearch).toHaveBeenCalledWith('files', '', 'report ext:pdf');
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        expect(screen.queryByText('That team is no longer available')).not.toBeInTheDocument();
+    });
+
+    describe('with the recent searches API mocked', () => {
+        const items = [
+            makeItem({id: 'a', terms: 'first', update_at: 30}),
+            makeItem({id: 'b', terms: 'second', update_at: 20}),
+            makeItem({id: 'c', terms: 'third', update_at: 10}),
+        ];
+        const state = {
+            entities: {
+                users: {currentUserId: 'user1'},
+                search: {recentSearches: items},
+            },
+        };
+
+        let getRecentSearchesSpy: jest.SpyInstance;
+        let deleteRecentSearchSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            // The panel fetches on mount; returning the same list keeps the store deterministic.
+            getRecentSearchesSpy = jest.spyOn(Client4, 'getRecentSearches').mockResolvedValue({items});
+            deleteRecentSearchSpy = jest.spyOn(Client4, 'deleteRecentSearch').mockResolvedValue({status: 'OK'});
+        });
+
+        afterEach(() => {
+            // Restore only these spies: restoreAllMocks would also detach the global console spies from setup_jest.
+            getRecentSearchesSpy.mockRestore();
+            deleteRecentSearchSpy.mockRestore();
+        });
+
+        const visibleTerms = () => screen.getAllByRole('button', {name: /^Search again: /}).map((button) => button.textContent);
+
+        test('clear deletes the selected search and keeps the rest in order', async () => {
+            renderWithContext(
+                <RecentSearches
+                    onSearch={onSearch}
+                    myTeams={[team]}
+                />,
+                state,
+            );
+            await waitFor(() => expect(getRecentSearchesSpy).toHaveBeenCalledTimes(1));
+
+            // Clear uses pointer-events: none until hover/focus-within; fireEvent bypasses that gate in jsdom.
+            fireEvent.click(screen.getByRole('button', {name: 'Clear second'}));
+
+            await waitFor(() => expect(screen.queryByText('second')).not.toBeInTheDocument());
+            expect(deleteRecentSearchSpy).toHaveBeenCalledTimes(1);
+            expect(deleteRecentSearchSpy).toHaveBeenCalledWith('user1', 'b');
+            expect(visibleTerms()).toEqual(['first', 'third']);
+            expect(onSearch).not.toHaveBeenCalled();
+        });
+
+        test('clear is hidden from the pointer by default but reachable and usable from the keyboard', async () => {
+            renderWithContext(
+                <RecentSearches
+                    onSearch={onSearch}
+                    myTeams={[team]}
+                />,
+                state,
+            );
+            await waitFor(() => expect(getRecentSearchesSpy).toHaveBeenCalledTimes(1));
+
+            const rerun = screen.getByRole('button', {name: 'Search again: first'});
+            const clear = screen.getByRole('button', {name: 'Clear first'});
+
+            // This pointer gate is what made the end-to-end test fail without a hover first.
+            expect(clear).toHaveStyle({pointerEvents: 'none', opacity: '0'});
+
+            await userEvent.tab();
+            expect(rerun).toHaveFocus();
+            await userEvent.tab();
+            expect(clear).toHaveFocus();
+
+            // jsdom does not apply the :focus-within reveal rule; the Playwright end-to-end test covers it.
+            await userEvent.keyboard('{Enter}');
+
+            await waitFor(() => expect(screen.queryByText('first')).not.toBeInTheDocument());
+            expect(deleteRecentSearchSpy).toHaveBeenCalledWith('user1', 'a');
+            expect(visibleTerms()).toEqual(['second', 'third']);
+            expect(onSearch).not.toHaveBeenCalled();
+        });
     });
 });
